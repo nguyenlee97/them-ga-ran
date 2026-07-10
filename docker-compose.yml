@@ -1,0 +1,44 @@
+# KFC Hackathon — local/staging stack.
+#   docker compose up -d           → mongo + backend + reco + qdrant
+# Seed + mine rules AFTER services are up (see README).
+services:
+  mongo:
+    image: mongo:8
+    ports: ["27017:27017"]
+    volumes: [mongo_data:/data/db]
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    ports: ["3000:3000"]
+    environment:
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongo:27017/kfc
+      - RECO_URL=http://reco:8080
+      - CORS_ORIGINS=*
+    depends_on: [mongo]
+    restart: unless-stopped
+
+  reco:
+    build: ./reco
+    ports: ["8080:8080"]
+    environment:
+      - PORT=8080
+      - MONGODB_URI=mongodb://mongo:27017/kfc
+      - BACKEND_URL=http://backend:3000
+      - QDRANT_URL=http://qdrant:6333
+      # set OPENAI_API_KEY in a .env file or your shell to enable L5 rerank/copy
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+    depends_on: [mongo, backend, qdrant]
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    ports: ["6333:6333"]
+    volumes: [qdrant_data:/qdrant/storage]
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  qdrant_data:

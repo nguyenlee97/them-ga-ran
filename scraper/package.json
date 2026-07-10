@@ -1,0 +1,13 @@
+{
+  "name": "kfc-menu-scraper",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Scrape kfcvietnam.com.vn/menu DOM → menu.json (normalized to Product shape).",
+  "scripts": {
+    "scrape": "node scrape_menu.js",
+    "install:browser": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.47.0"
+  }
+}

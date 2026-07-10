@@ -1,0 +1,17 @@
+# Core service
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pymongo==4.8.0
+pydantic==2.9.2
+python-dotenv==1.0.1
+
+# L1 association-rule mining (offline job)
+pandas==2.2.2
+mlxtend==0.23.1
+
+# L5 LLM rerank + copy
+openai==1.51.0
+
+# L3 embeddings / vector search (optional — guarded imports)
+fastembed==0.3.6
+qdrant-client==1.11.2
