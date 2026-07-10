@@ -25,7 +25,7 @@
   "emptyCart": "Your cart is empty",
   "add": "Add",
   "remove": "Remove",
-  "voucher": "Promo code",
+  "voucher": "PROMO CODE",
   "apply": "Apply",
   "member": "Member",
   "points": "pts",
@@ -34,5 +34,12 @@
   "pointsEarned": "Points earned",
   "newOrder": "New order",
   "timesEaten": "Times eaten at KFC",
-  "rank": "Member rank"
+  "rank": "Member rank",
+  "home": "Home",
+  "myOrder": "MY ORDER",
+  "choosePromo": "CHOOSE PROMO",
+  "memberBanner": "ENJOY MEMBER OFFERS - LOG IN NOW!",
+  "loginBtn": "LOG IN",
+  "subtotal": "Subtotal",
+  "discountLbl": "Discount"
 }

@@ -18,23 +18,30 @@ def candidates_from_context(cart_skus, cart_tags, ctx, limit=20):
     products = list(db.products.find({"available": True}))
     by_sku = {p["sku"]: p for p in products}
 
-    has_drink = any("drink" in (by_sku.get(s, {}).get("tags") or []) for s in cart_skus)
-    has_side = any("side" in (by_sku.get(s, {}).get("tags") or []) for s in cart_skus)
+    # A combo in the cart already bundles a drink + side, so treat those as covered.
+    has_combo = any((by_sku.get(s, {}) or {}).get("isCombo") for s in cart_skus)
+    has_drink = has_combo or any("drink" in (by_sku.get(s, {}).get("tags") or []) for s in cart_skus)
+    has_side = has_combo or any("side" in (by_sku.get(s, {}).get("tags") or []) for s in cart_skus)
     has_dessert = any("dessert" in (by_sku.get(s, {}).get("tags") or []) for s in cart_skus)
     tod = ctx.get("timeOfDay")
 
     wanted = []
     if not has_drink:
-        wanted.append(("drink", "Thêm nước uống cho trọn bữa", 3.0))
+        wanted.append(("drink", "Thêm nước uống cho trọn bữa", 1.5))
     if not has_side:
-        wanted.append(("side", "Gọi thêm món ăn kèm nhé", 2.0))
+        wanted.append(("side", "Gọi thêm món ăn kèm nhé", 1.2))
     if not has_dessert and tod in ("afternoon", "dinner", "late"):
-        wanted.append(("dessert", "Tráng miệng ngọt ngào?", 1.5))
+        wanted.append(("dessert", "Tráng miệng ngọt ngào?", 1.0))
 
     out = []
     for tag, reason, base in wanted:
-        pool = [p for p in products if _tag(p, tag) and p["sku"] not in cart_skus]
-        # bestsellers first, then cheaper (low-friction add-ons)
+        # Atomic complements only — never suggest a whole combo as a "drink"/"side".
+        pool = [p for p in products
+                if _tag(p, tag) and not p.get("isCombo") and p["sku"] not in cart_skus]
+        # a "drink" suggestion must be a real drink, not e.g. a chicken item tagged for other reasons
+        if tag == "drink":
+            pool = [p for p in pool if "chicken" not in (p.get("tags") or [])]
+        # bestsellers first, then larger size (natural upsell)
         pool.sort(key=lambda p: (("bestseller" in (p.get("tags") or [])), -p["price"]), reverse=True)
         for i, p in enumerate(pool[:4]):
             out.append({

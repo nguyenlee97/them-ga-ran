@@ -14,6 +14,7 @@ class Config:
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "") or None
 
+    USE_EMBEDDINGS = os.getenv("RECO_USE_EMBEDDINGS", "false").lower() == "true"
     QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
     RAG_COLLECTION = os.getenv("RAG_COLLECTION", "kfc_menu")
     RAG_DENSE_MODEL = os.getenv(

@@ -55,16 +55,16 @@ async function scrape({ headful = false } = {}) {
       "THỨC UỐNG & TRÁNG MIỆNG": "Thức Uống & Tráng Miệng" };
     const norm = (s) => (s || "").trim().toUpperCase();
     const tagize = (name, catU, desc) => {
-      const s = (name + " " + catU + " " + desc).toLowerCase(); const t = [];
+      const s = (name + " " + desc).toLowerCase(); const t = [];  // name+desc only, NOT category
       if (/combo|xô|bucket/.test(s)) t.push("combo");
-      if (/pepsi|7up|lipton|nước|trà|drink/.test(s)) t.push("drink");
-      if (/bánh trứng|kem|tráng miệng/.test(s)) t.push("dessert");
+      if (/pepsi|7up|lipton|nước|trà/.test(s)) t.push("drink");
+      if (/bánh trứng|\bkem\b|sundae|ốc quế|tráng miệng/.test(s)) t.push("dessert");
       if (/khoai|salad|phô mai viên|bắp cải|súp|cơm trắng|popcorn|nghiền/.test(s)) t.push("side");
       if (/gà rán|miếng gà|tender|popcorn|phi-lê|gà lắc|xốt mắm|gà quay|gà viên|nanban/.test(s)) t.push("chicken");
       if (/burger/.test(s)) t.push("burger");
       if (/mì ý/.test(s)) t.push("pasta");
       if (/\bcơm\b/.test(s)) t.push("rice");
-      if (/lắc tiêu|zinger|cay|xốt mắm/.test(s)) t.push("spicy");
+      if (/lắc tiêu|zinger|\bcay\b|xốt mắm/.test(s)) t.push("spicy");
       if (catU === "MÓN MỚI") t.push("new");
       if (catU === "ƯU ĐÃI") t.push("deal", "bestseller");
       return [...new Set(t)];

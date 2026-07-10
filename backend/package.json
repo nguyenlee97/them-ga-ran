@@ -1,7 +1,7 @@
 {
   "name": "kfc-backend",
   "version": "0.1.0",
-  "description": "KFC ordering brain — Express + MongoDB backend (kiosk + chat).",
+  "description": "KFC ordering brain \u2014 Express + MongoDB backend (kiosk + chat).",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
@@ -9,7 +9,8 @@
     "dev": "node --watch src/server.js",
     "seed": "node seed/index.js",
     "seed:menu": "node seed/menu.seed.js",
-    "seed:reset": "node seed/index.js --reset"
+    "seed:reset": "node seed/index.js --reset",
+    "seed:rules": "node seed/rules.only.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

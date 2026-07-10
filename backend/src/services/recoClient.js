@@ -5,7 +5,7 @@
  */
 const RECO_URL = process.env.RECO_URL || "http://localhost:8080";
 
-export async function getRecommendations(body, { timeoutMs = 2500 } = {}) {
+export async function getRecommendations(body, { timeoutMs = 8000 } = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {

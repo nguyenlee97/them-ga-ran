@@ -28,11 +28,20 @@ export async function addItem(cart, { productId, qty = 1, modifiers = [] }) {
     productId: product._id,
     sku: product.sku,
     name_vi: product.name_vi,
+    imageUrl: product.imageUrl,
     qty,
     unitPrice: product.price,
     modifiers,
     lineTotal: 0,
   });
+  return recalcCart(cart);
+}
+
+export function setItemQty(cart, lineId, qty) {
+  const line = cart.items.find((l) => l.lineId === lineId);
+  if (!line) throw httpError(404, "line_not_found", lineId);
+  if (qty <= 0) return removeItem(cart, lineId);
+  line.qty = qty;
   return recalcCart(cart);
 }
 

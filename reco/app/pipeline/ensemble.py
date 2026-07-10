@@ -2,21 +2,34 @@
 Ensemble orchestrator — graceful-degrading layers:
   L1 assoc_rules  →  L2 context_pop (fill)  →  [L3 embeddings]  →
   merge/dedupe  →  L4 personalize (logged-in)  →  L5 llm_rerank + VN copy.
+Plus a distinct combo trade-up ("Nâng cấp lên Combo") surfaced separately.
 
 If OpenAI/Qdrant are down, L1+L2 still return solid recommendations.
 """
 from app.db import get_db
+from app.config import config
 from app.pipeline.assoc_rules import candidates_from_rules
 from app.pipeline.context_pop import candidates_from_context
 from app.pipeline import embeddings
 from app.pipeline.personalize import rerank_personal
 from app.pipeline.llm_rerank import llm_rerank
+from app.pipeline.combo_upsell import best_combo_upsell
+
+import time as _time
+_PROD_CACHE = {"data": None, "ts": 0.0}
+_PROD_TTL = 120.0  # seconds — menu rarely changes; avoids re-fetching every request
 
 
-def _product_index():
+def _product_index(force=False):
+    now = _time.time()
+    if not force and _PROD_CACHE["data"] is not None and (now - _PROD_CACHE["ts"]) < _PROD_TTL:
+        return _PROD_CACHE["data"]
     db = get_db()
     prods = list(db.products.find({"available": True}))
-    return {p["sku"]: p for p in prods}
+    idx = {p["sku"]: p for p in prods}
+    _PROD_CACHE["data"] = idx
+    _PROD_CACHE["ts"] = now
+    return idx
 
 
 def recommend(slot, ctx, limit=3):
@@ -37,35 +50,60 @@ def recommend(slot, ctx, limit=3):
     strategies = []
     candidates = []
 
-    # L1
+    # L1 — association rules
     l1 = candidates_from_rules(cart_skus, ctx, limit=20)
     if l1:
         strategies.append("assoc_rule")
         candidates.extend(l1)
 
-    # L2 — always add complements, used as fill / when L1 thin
+    # L2 — complete-the-meal fallback / fill
     l2 = candidates_from_context(cart_skus, cart_tags, ctx, limit=20)
     if l2:
         strategies.append("context_pop")
         candidates.extend(l2)
 
-    # L3 — optional vector similarity to broaden candidate pool
-    if embeddings.available() and cart_skus:
+    # L3 — optional vector similarity (off unless RECO_USE_EMBEDDINGS=true)
+    if config.USE_EMBEDDINGS and embeddings.available() and cart_skus:
         seed = ", ".join(name_of(s) for s in list(cart_skus)[:3])
         l3 = embeddings.similar_skus(seed, exclude=cart_skus, limit=8)
         if l3:
             strategies.append("embedding")
             candidates.extend(l3)
 
-    # merge/dedupe keeping best score per sku
+    # Rank data-driven association rules above the generic fallback.
+    PRIO = {"assoc_rule": 2, "embedding": 1, "context_pop": 0}
+    prio_of = lambda c: PRIO.get(str(c.get("strategy", "")).split("+")[0], 0)
+
+    # merge/dedupe: keep the HIGHER-PRIORITY layer per item, then higher score.
+    # Never recommend a combo as an add-on; never re-suggest a cart item.
     merged = {}
     for c in candidates:
         sku = c["sku"]
-        if sku in cart_skus or sku not in prod_idx:
+        prod = prod_idx.get(sku)
+        if sku in cart_skus or not prod or prod.get("isCombo"):
             continue
-        if sku not in merged or c.get("score", 0) > merged[sku].get("score", 0):
+        cur = merged.get(sku)
+        if cur is None or (prio_of(c), c.get("score", 0)) > (prio_of(cur), cur.get("score", 0)):
             merged[sku] = c
-    pool = sorted(merged.values(), key=lambda x: x.get("score", 0), reverse=True)[:12]
+    ranked = sorted(merged.values(), key=lambda x: (prio_of(x), x.get("score", 0)), reverse=True)
+
+    # Diversify: prefer one per complement category (drink / side / dessert).
+    def _cat(sku):
+        t = prod_idx[sku].get("tags") or []
+        for k in ("drink", "side", "dessert"):
+            if k in t:
+                return k
+        return "other"
+
+    seen_cat, primary, rest = {}, [], []
+    for c in ranked:
+        cat = _cat(c["sku"])
+        if seen_cat.get(cat, 0) < 1:
+            seen_cat[cat] = 1
+            primary.append(c)
+        else:
+            rest.append(c)
+    pool = (primary + rest)[:12]
 
     # L4 — personalize (logged-in only)
     if ctx.get("userId"):
@@ -78,7 +116,7 @@ def recommend(slot, ctx, limit=3):
     if used_llm:
         strategies.append("llm_rerank")
 
-    # shape output + attach product fields
+    # shape complement output
     recs = []
     for c in picks:
         p = prod_idx.get(c["sku"], {})
@@ -94,8 +132,14 @@ def recommend(slot, ctx, limit=3):
             "score": round(float(c.get("score", 0)), 4),
         })
 
+    # Combo trade-up (distinct recommendation type)
+    combo_up = best_combo_upsell(cart, prod_idx)
+    if combo_up:
+        strategies.append("combo_upsell")
+
     return {
         "slot": slot,
         "recommendations": recs,
+        "comboUpsell": combo_up,
         "explain": {"strategies_used": strategies, "candidate_pool": len(pool)},
     }

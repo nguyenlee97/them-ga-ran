@@ -22,6 +22,7 @@ export const api = {
   getCart: (id) => req(`/api/carts/${id}`),
   addItem: (id, body) => req(`/api/carts/${id}/items`, { method: "POST", body }),
   removeItem: (id, lineId) => req(`/api/carts/${id}/items/${lineId}`, { method: "DELETE" }),
+  setItemQty: (id, lineId, qty) => req(`/api/carts/${id}/items/${lineId}`, { method: "PATCH", body: { qty } }),
   patchCart: (id, body) => req(`/api/carts/${id}`, { method: "PATCH", body }),
   applyVoucher: (id, code) => req(`/api/vouchers/carts/${id}/apply`, { method: "POST", body: { code } }),
   placeOrder: (body) => req("/api/orders", { method: "POST", body }),

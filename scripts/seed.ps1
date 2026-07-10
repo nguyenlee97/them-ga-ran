@@ -12,7 +12,7 @@
 #>
 param(
   [switch]$Scrape,
-  [switch]$NoRules,
+  [switch]$Mine,
   [switch]$Index
 )
 $ErrorActionPreference = "Stop"
@@ -43,9 +43,9 @@ npm install
 npm run seed
 Pop-Location
 
-# 3. mine rules
-if (-not $NoRules) {
-  Write-Host "--- reco: install + mine association rules ---" -ForegroundColor Yellow
+# 3. OPTIONAL: data-mine rules (overwrites the curated rules — use with real POS data)
+if ($Mine) {
+  Write-Host "--- reco: install + mine association rules (overwriting curated) ---" -ForegroundColor Yellow
   Push-Location (Join-Path $Root "reco")
   pip install -q -r requirements.txt
   python -m app.mine_rules

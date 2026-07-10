@@ -3,9 +3,9 @@
 # One-shot seeder for the KFC hackathon (Linux / macOS / Git-Bash / VPS).
 # Run from anywhere; it locates the project root relative to this script.
 #
-#   bash scripts/seed.sh                # menu(sample) + stores + members + vouchers + transactions, then mine rules
+#   bash scripts/seed.sh                # menu + stores + members + vouchers + transactions + CURATED rules
 #   bash scripts/seed.sh --scrape       # scrape the live KFC menu first
-#   bash scripts/seed.sh --no-rules     # skip association-rule mining
+#   bash scripts/seed.sh --mine         # ALSO data-mine rules from transactions (overwrites curated; for real POS data)
 #   bash scripts/seed.sh --index        # also build the Qdrant vector index (needs Qdrant running)
 #
 # Requires: node + npm, python3 + pip. The kfc MONGODB_URI must already be in
@@ -13,11 +13,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCRAPE=0; RULES=1; INDEX=0
+SCRAPE=0; MINE=0; INDEX=0
 for a in "$@"; do
   case "$a" in
     --scrape) SCRAPE=1 ;;
-    --no-rules) RULES=0 ;;
+    --mine) MINE=1 ;;
     --index) INDEX=1 ;;
     *) echo "unknown flag: $a"; exit 1 ;;
   esac
@@ -37,13 +37,13 @@ if [ "$SCRAPE" = "1" ]; then
   ( cd "$ROOT/scraper" && npm install --silent && npx playwright install chromium && node scrape_menu.js )
 fi
 
-# 2. backend deps + seed
-echo "--- backend: install + seed ---"
+# 2. backend deps + seed (includes CURATED association rules)
+echo "--- backend: install + seed (menu, stores, members, vouchers, transactions, curated rules) ---"
 ( cd "$ROOT/backend" && npm install --silent && npm run seed )
 
-# 3. reco deps + mine rules
-if [ "$RULES" = "1" ]; then
-  echo "--- reco: install + mine association rules ---"
+# 3. OPTIONAL: data-mine rules from transactions (overwrites curated — use with real POS data)
+if [ "$MINE" = "1" ]; then
+  echo "--- reco: install + mine association rules (overwriting curated) ---"
   ( cd "$ROOT/reco" && pip install -q -r requirements.txt && python -m app.mine_rules )
 fi
 

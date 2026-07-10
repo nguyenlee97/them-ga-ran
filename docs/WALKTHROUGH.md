@@ -182,3 +182,38 @@ you still get recommendations with template copy.
   `menu.sample.json` (default).
 - **Stray `kiosk/node_modules`** — a leftover from my tooling; safe to delete,
   `npm install` will rebuild it.
+
+---
+
+## v2 update — faithful kiosk UI + real KFC menu
+
+The kiosk was rebuilt to match the real kiosk screenshots, and the menu now uses
+the **real KFC Vietnam catalog** (92 items, real prices/descriptions/photos,
+scraped from kfcvietnam.com.vn).
+
+**What changed**
+- Welcome screen: the **Ăn tại chỗ / Mua mang về** buttons are the entry action; login is now a **modal popup** over the welcome page (not a separate page).
+- Menu page: real category rail (Ưu Đãi, Món Mới, Combo 1 Người, Combo Nhóm, Gà Rán - Gà Quay, Burger - Cơm - Mì Ý, Thức Ăn Nhẹ, Thức Uống & Tráng Miệng), product cards with real photos + prices + descriptions.
+- Cart & checkout: rebuilt to match (member banner, promo row, totals, footer).
+- `scraper/menu.json` + `scraper/menu.sample.json` now contain the 92 real items with real image URLs (`static.kfcvietnam.com.vn/images/items/lg/<CODE>.jpg`).
+
+**To pick up the real menu in your DB, re-seed + re-mine** (products/skus changed):
+
+```powershell
+# from project root
+powershell -ExecutionPolicy Bypass -File scripts\seed.ps1
+```
+
+Or manually: `cd backend && npm run seed`, then re-mine rules with your 3.12 python:
+`cd ../reco && <python3.12> -m app.mine_rules`.
+
+**Run the kiosk**
+```bash
+cd kiosk
+npm install
+npm run dev        # http://localhost:5173
+```
+
+**Marketing images (optional):** drop `welcome-hero.png` (1080×1400) and
+`menu-banner.png` (1080×264) into `kiosk/public/assets/`. See `docs/IMAGE-ASSETS.md`.
+Styled fallbacks render if they're absent; product photos need nothing (live from KFC CDN).

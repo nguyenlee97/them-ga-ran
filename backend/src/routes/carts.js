@@ -1,6 +1,6 @@
 import { Router } from "express";
 import Cart from "../models/Cart.js";
-import { addItem, removeItem, recalcCart } from "../services/cartService.js";
+import { addItem, removeItem, setItemQty, recalcCart } from "../services/cartService.js";
 import { asyncH, httpError } from "../middleware/error.js";
 
 const r = Router();
@@ -24,6 +24,17 @@ r.post("/:id/items", asyncH(async (req, res) => {
   if (!cart) throw httpError(404, "cart_not_found");
   if (cart.status !== "open") throw httpError(409, "cart_not_open");
   await addItem(cart, req.body || {});
+  await cart.save();
+  res.json(cart);
+}));
+
+// PATCH /api/carts/:id/items/:lineId  {qty}  — set absolute line quantity
+r.patch("/:id/items/:lineId", asyncH(async (req, res) => {
+  const cart = await Cart.findById(req.params.id);
+  if (!cart) throw httpError(404, "cart_not_found");
+  const qty = Number(req.body?.qty);
+  if (!Number.isFinite(qty)) throw httpError(400, "invalid_qty");
+  setItemQty(cart, req.params.lineId, qty);
   await cart.save();
   res.json(cart);
 }));

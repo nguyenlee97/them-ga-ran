@@ -6,6 +6,7 @@ const CartLine = new mongoose.Schema(
     productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
     sku: String,
     name_vi: String,
+    imageUrl: String,
     qty: { type: Number, default: 1, min: 1 },
     unitPrice: { type: Number, required: true }, // snapshot at add time
     modifiers: { type: Array, default: [] }, // [{group, name_vi, priceDelta}]

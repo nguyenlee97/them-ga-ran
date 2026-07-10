@@ -25,7 +25,7 @@
   "emptyCart": "Bạn chưa có gì trong giỏ hàng",
   "add": "Thêm",
   "remove": "Xoá",
-  "voucher": "Nhập mã KM",
+  "voucher": "NHẬP MÃ KM",
   "apply": "Áp dụng",
   "member": "Thành viên",
   "points": "điểm",
@@ -34,5 +34,12 @@
   "pointsEarned": "Điểm tích luỹ",
   "newOrder": "Đơn mới",
   "timesEaten": "Số lần ăn tại KFC",
-  "rank": "Hạng thành viên"
+  "rank": "Hạng thành viên",
+  "home": "Về trang chủ",
+  "myOrder": "ĐƠN HÀNG CỦA TÔI",
+  "choosePromo": "CHỌN KHUYẾN MÃI",
+  "memberBanner": "TẬN HƯỞNG ƯU ĐÃI THÀNH VIÊN - ĐĂNG NHẬP NGAY!",
+  "loginBtn": "ĐĂNG NHẬP",
+  "subtotal": "Tổng cộng",
+  "discountLbl": "Khuyến mãi"
 }
