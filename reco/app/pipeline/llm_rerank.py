@@ -1,5 +1,5 @@
 """
-L5 — LLM re-ranker + Vietnamese copywriter (OpenAI).
+L5 — LLM re-ranker + Vietnamese copywriter.
 
 Two jobs, BOTH strictly over the candidate set:
   1. pick & order the best `limit` items given full context
@@ -8,28 +8,24 @@ Two jobs, BOTH strictly over the candidate set:
 Guardrail (ported from Claw-a-thon rag/recommend.py): every returned sku is
 validated against the candidate set; invented items are DROPPED. If no API key
 or the call fails, we fall back to the top-N candidates with template copy.
+
+Uses app.llm_client (raw httpx POST, no SDK) — the flow proven to work on
+this machine by random-bullshlt's reportGenerator.js.
 """
-import json
+import re
 from app.config import config
+from app import llm_client
 
-_client = None
+# MaaS models (minimax etc.) leak <think> reasoning and markdown fences.
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 
 
-def _get_client():
-    """Never let client construction take down the request path — the whole
-    design promise is that L1+L2 still serve when OpenAI is unavailable."""
-    global _client
-    if _client is None and config.OPENAI_API_KEY:
-        try:
-            from openai import OpenAI
-            kwargs = {"api_key": config.OPENAI_API_KEY}
-            if config.OPENAI_BASE_URL:
-                kwargs["base_url"] = config.OPENAI_BASE_URL
-            _client = OpenAI(**kwargs)
-        except Exception as e:
-            print(f"[llm_rerank] OpenAI client init failed — template copy fallback. ({e})")
-            _client = False  # sentinel: don't retry on every request
-    return _client or None
+def _extract_json(raw):
+    import json
+    raw = _THINK_RE.sub("", raw or "")
+    raw = re.sub(r"```(?:json)?", "", raw).strip()
+    m = re.search(r"\{.*\}", raw, re.DOTALL)
+    return json.loads(m.group()) if m else {}
 
 
 SYSTEM = (
@@ -45,17 +41,20 @@ def _template_copy(name):
     return f"Thêm {name} cho bữa ăn trọn vị nhé!"
 
 
+def _fallback(candidates, name_of, limit):
+    picks = candidates[:limit]
+    for c in picks:
+        c["copy"] = _template_copy(name_of(c["sku"]))
+    return picks, False
+
+
 def llm_rerank(candidates, ctx, name_of, limit=3):
     """Returns (picks, used_llm). picks: [{sku, copy, ...}] limited to `limit`."""
+    import json
     if not candidates:
         return [], False
-
-    client = _get_client()
-    if client is None:
-        picks = candidates[:limit]
-        for c in picks:
-            c["copy"] = _template_copy(name_of(c["sku"]))
-        return picks, False
+    if not llm_client.available():
+        return _fallback(candidates, name_of, limit)
 
     cand_view = [{"sku": c["sku"], "name": name_of(c["sku"]), "reason": c.get("reason", "")}
                  for c in candidates[:12]]
@@ -65,13 +64,13 @@ def llm_rerank(candidates, ctx, name_of, limit=3):
         f"Ứng viên (chỉ chọn trong đây):\n{json.dumps(cand_view, ensure_ascii=False)}"
     )
     try:
-        resp = client.chat.completions.create(
-            model=config.OPENAI_MODEL,
+        # json_object mode is OpenAI-specific; skip it for custom base URLs (MaaS)
+        rf = {"type": "json_object"} if not config.OPENAI_BASE_URL else None
+        msg = llm_client.chat(
             messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}],
-            temperature=0.4,
-            response_format={"type": "json_object"},
+            temperature=0.4, response_format=rf,
         )
-        data = json.loads(resp.choices[0].message.content)
+        data = _extract_json(msg.get("content"))
         valid = {c["sku"]: c for c in candidates}
         picks, dropped = [], 0
         for p in data.get("picks", []):
@@ -84,13 +83,8 @@ def llm_rerank(candidates, ctx, name_of, limit=3):
             else:
                 dropped += 1
         if not picks:  # LLM returned only junk → fall back
-            picks = candidates[:limit]
-            for c in picks:
-                c["copy"] = _template_copy(name_of(c["sku"]))
-            return picks, False
+            return _fallback(candidates, name_of, limit)
         return picks[:limit], True
-    except Exception:
-        picks = candidates[:limit]
-        for c in picks:
-            c["copy"] = _template_copy(name_of(c["sku"]))
-        return picks, False
+    except Exception as e:
+        print(f"[llm_rerank] LLM call failed — template fallback. ({type(e).__name__}: {str(e)[:200]})")
+        return _fallback(candidates, name_of, limit)

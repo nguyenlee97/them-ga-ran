@@ -84,7 +84,9 @@ export default function RecoStrip({ slot, context, title, t, onAdd, onUpgrade, l
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate">{r.name}</div>
                   <div className="text-xs text-kfcred font-bold">{vnd(r.price)}</div>
-                  {r.copy ? <div className="text-[11px] text-gray-500 line-clamp-2">{r.copy}</div> : null}
+                  {/* reason = the explainability line ("71% khách mua cùng", "Món bạn hay gọi") */}
+                  {r.reason ? <div className="text-[11px] text-gray-600 font-medium line-clamp-2">{r.reason}</div> : null}
+                  {r.copy && r.copy !== r.reason ? <div className="text-[11px] text-gray-400 line-clamp-1">{r.copy}</div> : null}
                 </div>
                 <button
                   onClick={async () => {

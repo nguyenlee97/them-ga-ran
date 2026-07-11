@@ -1,0 +1,2 @@
+Drop the Zalo domain-verification HTML file here (file method).
+It will be served at https://<domain>/<filename>.html

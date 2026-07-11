@@ -24,8 +24,12 @@ const CartSchema = new mongoose.Schema(
   {
     channel: { type: String, enum: ["kiosk", "zalo", "messenger"], default: "kiosk" },
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store" },
-    dineMode: { type: String, enum: ["dine_in", "takeaway"], default: "dine_in" },
+    dineMode: { type: String, enum: ["dine_in", "takeaway", "delivery"], default: "dine_in" },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }, // null = anonymous
+    // Delivery (chat channels ship to the customer): free-text address for the demo.
+    deliveryAddress: { type: String, default: null },
+    contactName: { type: String, default: null },
+    contactPhone: { type: String, default: null },
     items: { type: [CartLine], default: [] },
     appliedVouchers: { type: [AppliedVoucher], default: [] },
     totals: {

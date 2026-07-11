@@ -6,8 +6,11 @@ const OrderSchema = new mongoose.Schema(
     cartId: { type: mongoose.Schema.Types.ObjectId, ref: "Cart" },
     channel: { type: String, enum: ["kiosk", "zalo", "messenger"], default: "kiosk" },
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store" },
-    dineMode: { type: String, enum: ["dine_in", "takeaway"], default: "dine_in" },
+    dineMode: { type: String, enum: ["dine_in", "takeaway", "delivery"], default: "dine_in" },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    deliveryAddress: { type: String, default: null },
+    contactName: { type: String, default: null },
+    contactPhone: { type: String, default: null },
     items: { type: Array, default: [] }, // snapshot of cart lines
     appliedVouchers: { type: Array, default: [] },
     totals: {
@@ -16,7 +19,7 @@ const OrderSchema = new mongoose.Schema(
       grandTotal: Number,
     },
     payment: {
-      method: { type: String, default: "mock" },
+      method: { type: String, enum: ["mock", "cod", "qr"], default: "mock" },
       status: { type: String, enum: ["pending", "paid", "failed"], default: "pending" },
       paidAt: Date,
     },

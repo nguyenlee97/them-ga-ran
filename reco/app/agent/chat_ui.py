@@ -43,6 +43,7 @@ CHAT_HTML = """<!DOCTYPE html>
     <div class="avatar">K</div>
     <div class="t"><b>KFC Việt Nam</b><span id="sess"></span></div>
     <button onclick="resetSession()">Phiên mới</button>
+    <button onclick="newIdentity()" title="Giả lập người dùng Zalo khác (zaloIdByOA mới)">Đổi người</button>
   </header>
   <div id="log"></div>
   <div class="hints">
@@ -57,9 +58,26 @@ CHAT_HTML = """<!DOCTYPE html>
   </form>
 </div>
 <script>
+// Simulated zaloIdByOA: persists across sessions/reloads (like a real Zalo
+// user re-opening the OA chat), so the resolve→link→auto-recognize identity
+// flow is testable without Zalo. "Đổi người" simulates a different Zalo user.
+let externalId = localStorage.getItem("kfc_sim_zalo_id");
+if (!externalId) {
+  externalId = "sim-zalo-" + Math.random().toString(36).slice(2, 10);
+  localStorage.setItem("kfc_sim_zalo_id", externalId);
+}
 let sessionId = "web-" + Math.random().toString(36).slice(2, 10);
-document.getElementById("sess").textContent = "phiên " + sessionId;
 const log = document.getElementById("log");
+
+function showIds() {
+  document.getElementById("sess").textContent = "phiên " + sessionId + " · zaloId " + externalId.slice(-8);
+}
+function newIdentity() {
+  localStorage.removeItem("kfc_sim_zalo_id");
+  externalId = "sim-zalo-" + Math.random().toString(36).slice(2, 10);
+  localStorage.setItem("kfc_sim_zalo_id", externalId);
+  resetSession();
+}
 
 function bubble(cls, text) {
   const d = document.createElement("div");
@@ -92,10 +110,14 @@ async function send(e) {
   try {
     const r = await fetch("/agent/chat", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId, message: text, context: { channel: "zalo", externalId: sessionId } }),
+      body: JSON.stringify({ sessionId, message: text, context: { channel: "zalo", externalId } }),
     });
-    const data = await r.json();
     typing.remove();
+    if (!r.ok) {
+      bubble("bot", "Lỗi máy chủ agent (HTTP " + r.status + ") — xem log của reco service.");
+      return false;
+    }
+    const data = await r.json();
     toolChips(data.toolTrace);
     bubble("bot", data.reply || "(không có phản hồi)");
   } catch (err) {
@@ -107,7 +129,7 @@ async function send(e) {
 
 function resetSession() {
   sessionId = "web-" + Math.random().toString(36).slice(2, 10);
-  document.getElementById("sess").textContent = "phiên " + sessionId;
+  showIds();
   log.innerHTML = "";
   bubble("bot", "Xin chào! Mình là trợ lý đặt món KFC. Bạn muốn ăn gì hôm nay? 🍗");
 }

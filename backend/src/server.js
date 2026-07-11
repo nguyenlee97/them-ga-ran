@@ -17,6 +17,7 @@ import recommendRoutes from "./routes/recommend.js";
 import eventRoutes from "./routes/events.js";
 import handoffRoutes from "./routes/handoff.js";
 import adminRoutes from "./routes/admin.js";
+import channelRoutes from "./routes/channel.js";
 
 const app = express();
 
@@ -38,15 +39,19 @@ app.use("/api/recommend", recommendRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/handoff", handoffRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/channel", channelRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
+// Bind all interfaces by default (dev); set HOST=127.0.0.1 in prod to keep the
+// backend private behind the reco service / reverse proxy.
+const HOST = process.env.HOST || "0.0.0.0";
 
 connectDB()
   .then(() => {
-    app.listen(PORT, () => console.log(`[kfc-backend] listening on :${PORT}`));
+    app.listen(PORT, HOST, () => console.log(`[kfc-backend] listening on ${HOST}:${PORT}`));
   })
   .catch((err) => {
     console.error("[kfc-backend] failed to start:", err.message);

@@ -20,17 +20,41 @@ r.get("/categories", asyncH(async (req, res) => {
 }));
 
 // GET /api/menu/search?q=&category=&maxPrice=
-// Text-ish search now; the reco service adds embedding search later.
+// Token-scored, diacritic-insensitive search ("ga gion cay" works too).
+// Name hits rank far above description hits so "pepsi" returns the DRINK
+// before combos that merely mention Pepsi in their description.
+const _strip = (s) => (s || "").toLowerCase().normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+
 r.get("/search", asyncH(async (req, res) => {
   const { q = "", category, maxPrice } = req.query;
   const filter = { available: true };
-  if (category) filter.category = category;
   if (maxPrice) filter.price = { $lte: Number(maxPrice) };
-  if (q) {
-    const rx = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-    filter.$or = [{ name_vi: rx }, { name_en: rx }, { description: rx }, { tags: rx }];
+  let all = await Product.find(filter).lean();
+  if (category) {
+    const c = _strip(category);
+    all = all.filter((p) => _strip(p.category).includes(c));
   }
-  const items = await Product.find(filter).limit(30).lean();
+  const tokens = _strip(q).split(/\s+/).filter(Boolean);
+  if (!tokens.length) return res.json({ count: Math.min(all.length, 30), items: all.slice(0, 30) });
+
+  const scored = [];
+  for (const p of all) {
+    const name = _strip(p.name_vi) + " " + _strip(p.name_en);
+    const tags = _strip((p.tags || []).join(" "));
+    const cat = _strip(p.category);
+    const desc = _strip(p.description);
+    let score = 0;
+    for (const t of tokens) {
+      if (name.includes(t)) score += 10;
+      else if (tags.includes(t)) score += 4;
+      else if (cat.includes(t)) score += 3;
+      else if (desc.includes(t)) score += 1;
+    }
+    if (score > 0) scored.push([score, p]);
+  }
+  scored.sort((a, b) => b[0] - a[0]);
+  const items = scored.slice(0, 30).map((x) => x[1]);
   res.json({ count: items.length, items });
 }));
 

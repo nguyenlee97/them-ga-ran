@@ -6,6 +6,7 @@ import Transaction from "../models/Transaction.js";
 import AssocRule from "../models/AssocRule.js";
 import Order from "../models/Order.js";
 import Event from "../models/Event.js";
+import Cart from "../models/Cart.js";
 import { asyncH } from "../middleware/error.js";
 import { DASHBOARD_HTML } from "./metricsDashboard.js";
 
@@ -114,5 +115,25 @@ r.get("/metrics", asyncH(async (req, res) => {
 
 // Human-readable dashboard over /metrics — open http://localhost:3000/api/admin/dashboard
 r.get("/dashboard", (req, res) => res.type("html").send(DASHBOARD_HTML));
+
+/**
+ * POST /api/admin/reset-demo — clean slate for a scripted demo run.
+ * Clears telemetry (events), live orders/carts, and the order-derived
+ * transactions (externalId "order:*"). Seeded synthetic history, members,
+ * menu, and curated rules are untouched.
+ */
+r.post("/reset-demo", asyncH(async (req, res) => {
+  const [ev, orders, carts, tx] = await Promise.all([
+    Event.deleteMany({}),
+    Order.deleteMany({}),
+    Cart.deleteMany({}),
+    Transaction.deleteMany({ externalId: /^order:/ }),
+  ]);
+  res.json({
+    reset: true,
+    deleted: { events: ev.deletedCount, orders: orders.deletedCount,
+               carts: carts.deletedCount, liveTransactions: tx.deletedCount },
+  });
+}));
 
 export default r;

@@ -123,7 +123,7 @@ def recommend(slot, ctx, limit=3):
     # Personal-favorite boosts (≤ ~0.6) can still lift an item within reach,
     # but a strong mined rule isn't dethroned by a generic fallback.
     for c in merged.values():
-        c["score"] = c.get("score", 0) + prio_of(c) * 0.5
+        c["score"] = c.get("score", 0) + prio_of(c) * 0.4
     ranked = sorted(merged.values(), key=lambda x: x.get("score", 0), reverse=True)
 
     # L4 — personalize (logged-in only): recency-weighted affinity blended

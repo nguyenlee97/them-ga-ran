@@ -17,11 +17,16 @@ export default function Cart(props) {
     await api.addItem(cart._id, { productId: combo.productId, qty: 1 });
     await refreshCart();
   };
+  const [busy, setBusy] = useState(false);
   const changeQty = async (line, delta) => {
-    const next = line.qty + delta;
-    if (next <= 0) await api.removeItem(cart._id, line.lineId);
-    else await api.setItemQty(cart._id, line.lineId, next);
-    await refreshCart();
+    if (busy) return; // serialize mutations — parallel saves on one cart doc 500
+    setBusy(true);
+    try {
+      const next = line.qty + delta;
+      if (next <= 0) await api.removeItem(cart._id, line.lineId);
+      else await api.setItemQty(cart._id, line.lineId, next);
+      await refreshCart();
+    } finally { setBusy(false); }
   };
   const remove = async (lineId) => { await api.removeItem(cart._id, lineId); await refreshCart(); };
   const applyVoucher = async () => {
@@ -80,7 +85,8 @@ export default function Cart(props) {
               </div>
             ))}
           </div>
-          <RecoStrip slot="cart" context={recoContext()} title={t("completeMeal") || "Hoàn thiện bữa ăn"} t={t} onAdd={addReco} onUpgrade={upgrade} limit={3} />
+          {/* cartVersion makes the strip refetch when lines/totals change */}
+          <RecoStrip slot="cart" context={{ ...recoContext(), cartVersion: `${count}-${cart?.totals?.grandTotal}` }} title={t("completeMeal") || "Hoàn thiện bữa ăn"} t={t} onAdd={addReco} onUpgrade={upgrade} limit={3} />
         </div>
       )}
 

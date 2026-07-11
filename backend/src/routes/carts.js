@@ -48,13 +48,20 @@ r.delete("/:id/items/:lineId", asyncH(async (req, res) => {
   res.json(cart);
 }));
 
-// PATCH /api/carts/:id  {dineMode?, userId?}  — attach member after login, etc.
+// PATCH /api/carts/:id  {dineMode?, userId?, deliveryAddress?, contactName?, contactPhone?}
+// Attach member after login, set delivery details, etc.
 r.patch("/:id", asyncH(async (req, res) => {
   const cart = await Cart.findById(req.params.id);
   if (!cart) throw httpError(404, "cart_not_found");
-  const { dineMode, userId } = req.body || {};
+  const { dineMode, userId, deliveryAddress, contactName, contactPhone } = req.body || {};
   if (dineMode) cart.dineMode = dineMode;
   if (userId !== undefined) cart.userId = userId;
+  if (deliveryAddress !== undefined) {
+    cart.deliveryAddress = deliveryAddress;
+    cart.dineMode = "delivery"; // giving an address implies delivery
+  }
+  if (contactName !== undefined) cart.contactName = contactName;
+  if (contactPhone !== undefined) cart.contactPhone = contactPhone;
   recalcCart(cart);
   await cart.save();
   res.json(cart);

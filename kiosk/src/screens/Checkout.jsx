@@ -49,7 +49,7 @@ export default function Checkout(props) {
         <h2 className="font-black text-lg text-kfcdark">{t("checkout")}</h2>
       </div>
 
-      <RecoStrip slot="checkout" context={recoContext()} title={t("beforePay") || "Thêm chút nữa nhé?"} t={t} onAdd={addReco} onUpgrade={upgrade} limit={3} />
+      <RecoStrip slot="checkout" context={{ ...recoContext(), cartVersion: `${cart?.items?.length || 0}-${cart?.totals?.grandTotal}` }} title={t("beforePay") || "Thêm chút nữa nhé?"} t={t} onAdd={addReco} onUpgrade={upgrade} limit={3} />
 
       <div className="px-4 mt-2">
         {/* itemized order summary */}

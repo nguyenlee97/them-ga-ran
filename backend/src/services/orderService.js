@@ -21,7 +21,10 @@ export async function placeOrder({ cartId, idempotencyKey, payment = {} }) {
   if (cart.status === "ordered") throw httpError(409, "cart_already_ordered", cartId);
   if (!cart.items.length) throw httpError(400, "cart_empty");
 
-  // Build order snapshot. Payment is mocked → mark paid immediately.
+  // Build order snapshot. QR waits for the payment webhook; COD/mock are settled
+  // at placement (COD is paid-on-delivery, treated as confirmed for the demo).
+  const method = payment.method || "mock";
+  const isQr = method === "qr";
   const orderDoc = {
     idempotencyKey,
     cartId: cart._id,
@@ -29,11 +32,16 @@ export async function placeOrder({ cartId, idempotencyKey, payment = {} }) {
     storeId: cart.storeId,
     dineMode: cart.dineMode,
     userId: cart.userId || null,
+    deliveryAddress: cart.deliveryAddress || null,
+    contactName: cart.contactName || null,
+    contactPhone: cart.contactPhone || null,
     items: cart.items,
     appliedVouchers: cart.appliedVouchers,
     totals: cart.totals,
-    payment: { method: payment.method || "mock", status: "paid", paidAt: new Date() },
-    status: "paid",
+    payment: isQr
+      ? { method, status: "pending" }
+      : { method, status: "paid", paidAt: new Date() },
+    status: isQr ? "created" : "paid",
     placedAt: new Date(),
   };
 

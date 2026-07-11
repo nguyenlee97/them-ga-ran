@@ -12,7 +12,12 @@ mlxtend==0.23.1
 # L5 LLM rerank + copy
 # >=1.55.3 required: older versions pass `proxies` to httpx, removed in httpx 0.28
 openai>=1.55.3,<2
+# Use the OS certificate store (fixes corp TLS-inspection connection errors)
+truststore>=0.9
 
 # L3 embeddings / vector search (optional — guarded imports)
 fastembed==0.3.6
 qdrant-client==1.11.2
+
+# P4 Zalo QR payment (scannable QR image for the simulated pay flow)
+qrcode[pil]==7.4.2
