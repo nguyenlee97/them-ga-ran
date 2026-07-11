@@ -16,14 +16,20 @@ _client = None
 
 
 def _get_client():
+    """Never let client construction take down the request path — the whole
+    design promise is that L1+L2 still serve when OpenAI is unavailable."""
     global _client
     if _client is None and config.OPENAI_API_KEY:
-        from openai import OpenAI
-        kwargs = {"api_key": config.OPENAI_API_KEY}
-        if config.OPENAI_BASE_URL:
-            kwargs["base_url"] = config.OPENAI_BASE_URL
-        _client = OpenAI(**kwargs)
-    return _client
+        try:
+            from openai import OpenAI
+            kwargs = {"api_key": config.OPENAI_API_KEY}
+            if config.OPENAI_BASE_URL:
+                kwargs["base_url"] = config.OPENAI_BASE_URL
+            _client = OpenAI(**kwargs)
+        except Exception as e:
+            print(f"[llm_rerank] OpenAI client init failed — template copy fallback. ({e})")
+            _client = False  # sentinel: don't retry on every request
+    return _client or None
 
 
 SYSTEM = (

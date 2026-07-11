@@ -2,6 +2,7 @@ import Order from "../models/Order.js";
 import Cart from "../models/Cart.js";
 import User from "../models/User.js";
 import { applyOrderToStats } from "./loyaltyService.js";
+import { appendOrderTransaction } from "./transactionService.js";
 import { httpError } from "../middleware/error.js";
 
 /**
@@ -60,6 +61,10 @@ export async function placeOrder({ cartId, idempotencyKey, payment = {} }) {
   if (user) await user.save();
   cart.status = "ordered";
   await cart.save();
+
+  // Feedback loop: append to `transactions` so this purchase shapes future
+  // recommendations. Fire-and-forget — never blocks or fails checkout.
+  appendOrderTransaction(order);
 
   return { order, deduped: false, pointsEarned };
 }

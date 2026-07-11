@@ -20,6 +20,7 @@ const UserSchema = new mongoose.Schema(
     tier: { type: String, enum: ["member", "gold", "platinum"], default: "member" },
     pointsBalance: { type: Number, default: 0 },
     birthday: Date,
+    persona: String, // synthetic-seed persona key (demo/debug; harmless for real users)
     favorites: { type: [String], default: [] }, // product skus
     stats: { type: StatsSchema, default: () => ({}) },
   },

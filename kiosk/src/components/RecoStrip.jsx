@@ -51,7 +51,14 @@ export default function RecoStrip({ slot, context, title, t, onAdd, onUpgrade, l
             </div>
             <div className="text-[11px] text-gray-600 line-clamp-2">{combo.copy}</div>
           </div>
-          <button onClick={() => onUpgrade(combo)}
+          <button onClick={() => {
+              onUpgrade(combo);
+              api.logEvent({
+                type: "combo_upgrade_accepted", slot, channel: "kiosk",
+                cartId: context.cartId, userId: context.userId, productId: combo.sku,
+                payload: { priceDelta: combo.priceDelta },
+              });
+            }}
             className="bg-amber-500 text-white text-sm font-bold rounded-lg px-3 py-2 shrink-0">
             Nâng cấp
           </button>

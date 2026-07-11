@@ -1,38 +1,60 @@
 import User from "../src/models/User.js";
+import Product from "../src/models/Product.js";
+import { buildGroups, samplePersona, pickFavorites, DEMO_ACCOUNTS } from "./personas.js";
 
 const NAMES = ["Minh", "Lan", "Huy", "Trang", "Nam", "Thu", "Phong", "Vy", "Khoa", "Ngân",
   "Đạt", "Hà", "Sơn", "Mai", "Tú", "Linh", "Bảo", "Quyên", "Hải", "Chi"];
+const SURNAMES = ["Nguyễn", "Trần", "Lê", "Phạm", "Hoàng"];
 
 function rand(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
 function pick(arr) { return arr[rand(0, arr.length - 1)]; }
 
 /**
- * Synthetic members with varied RFM so personalization has signal.
- * count members; ~15% gold, ~5% platinum.
+ * Persona-based synthetic members. Each user gets a persona + fixed favorite
+ * items; transactions.seed.js generates their purchase history FROM that
+ * persona, then recomputes stats/tier/points from the actual history.
+ * Includes 3 named demo accounts with known phones (see personas.js).
  */
 export async function seedUsers(count = 60) {
+  const products = await Product.find().lean();
+  if (!products.length) throw new Error("Seed menu first.");
+  const groups = buildGroups(products);
+
   await User.deleteMany({});
   const docs = [];
-  for (let i = 0; i < count; i++) {
-    const roll = Math.random();
-    const tier = roll > 0.95 ? "platinum" : roll > 0.8 ? "gold" : "member";
-    const totalOrders = rand(1, 40);
-    const avg = rand(60000, 220000);
+  const phones = new Set();
+
+  // Scripted demo accounts first.
+  for (const d of DEMO_ACCOUNTS) {
+    phones.add(d.phone);
     docs.push({
-      phone: `09${rand(10000000, 99999999)}`,
-      name: `${pick(NAMES)} ${pick(["Nguyễn", "Trần", "Lê", "Phạm", "Hoàng"])}`,
-      tier,
-      pointsBalance: rand(0, 5000),
-      stats: {
-        visitCount: totalOrders,
-        totalOrders,
-        totalSpend: totalOrders * avg,
-        firstOrderAt: new Date(Date.now() - rand(120, 400) * 864e5),
-        lastOrderAt: new Date(Date.now() - rand(0, 30) * 864e5),
-      },
+      phone: d.phone,
+      name: d.name,
+      persona: d.persona,
+      favorites: pickFavorites(d.persona, groups),
+      tier: "member", // recomputed from generated spend in transactions.seed
+      pointsBalance: 0,
+      stats: {},
     });
   }
+
+  for (let i = 0; i < count; i++) {
+    let phone = `09${rand(10000000, 99999999)}`;
+    while (phones.has(phone)) phone = `09${rand(10000000, 99999999)}`;
+    phones.add(phone);
+    const persona = samplePersona();
+    docs.push({
+      phone,
+      name: `${pick(NAMES)} ${pick(SURNAMES)}`,
+      persona,
+      favorites: pickFavorites(persona, groups),
+      tier: "member",
+      pointsBalance: 0,
+      stats: {},
+    });
+  }
+
   const inserted = await User.insertMany(docs);
-  console.log(`[seed:users] inserted ${inserted.length} members`);
+  console.log(`[seed:users] inserted ${inserted.length} members (${DEMO_ACCOUNTS.length} demo accounts, persona-based)`);
   return inserted;
 }

@@ -47,6 +47,19 @@ def recommend(slot, ctx, limit=3):
     for s in cart_skus:
         cart_tags.update((prod_idx.get(s) or {}).get("tags") or [])
 
+    # Complement categories already covered by the cart (a combo bundles a
+    # drink + side). Closes the L1 gap where e.g. a cart with a Pepsi could
+    # still get 7Up suggested — rules only exclude exact SKUs, not categories.
+    covered = set()
+    for s in cart_skus:
+        p = prod_idx.get(s) or {}
+        t = p.get("tags") or []
+        if p.get("isCombo"):
+            covered.update(("drink", "side"))
+        for k in ("drink", "side", "dessert"):
+            if k in t:
+                covered.add(k)
+
     strategies = []
     candidates = []
 
@@ -74,20 +87,7 @@ def recommend(slot, ctx, limit=3):
     PRIO = {"assoc_rule": 2, "embedding": 1, "context_pop": 0}
     prio_of = lambda c: PRIO.get(str(c.get("strategy", "")).split("+")[0], 0)
 
-    # merge/dedupe: keep the HIGHER-PRIORITY layer per item, then higher score.
-    # Never recommend a combo as an add-on; never re-suggest a cart item.
-    merged = {}
-    for c in candidates:
-        sku = c["sku"]
-        prod = prod_idx.get(sku)
-        if sku in cart_skus or not prod or prod.get("isCombo"):
-            continue
-        cur = merged.get(sku)
-        if cur is None or (prio_of(c), c.get("score", 0)) > (prio_of(cur), cur.get("score", 0)):
-            merged[sku] = c
-    ranked = sorted(merged.values(), key=lambda x: (prio_of(x), x.get("score", 0)), reverse=True)
-
-    # Diversify: prefer one per complement category (drink / side / dessert).
+    # Diversify key: complement category of a candidate.
     def _cat(sku):
         t = prod_idx[sku].get("tags") or []
         for k in ("drink", "side", "dessert"):
@@ -95,6 +95,51 @@ def recommend(slot, ctx, limit=3):
                 return k
         return "other"
 
+    # merge/dedupe: keep the HIGHER-PRIORITY layer per item, then higher score.
+    # Never recommend a combo as an add-on; never re-suggest a cart item;
+    # never suggest a complement category the cart already covers.
+    merged = {}
+    for c in candidates:
+        sku = c["sku"]
+        prod = prod_idx.get(sku)
+        if sku in cart_skus or not prod or prod.get("isCombo"):
+            continue
+        if _cat(sku) in covered:
+            continue
+        cur = merged.get(sku)
+        if cur is None or (prio_of(c), c.get("score", 0)) > (prio_of(cur), cur.get("score", 0)):
+            merged[sku] = c
+
+    # Active-promo nudge (all users): promoted/new items get a small boost.
+    if config.PROMO_BOOST:
+        for c in merged.values():
+            p = prod_idx.get(c["sku"]) or {}
+            if p.get("promoIds") or "new" in (p.get("tags") or []):
+                c["score"] = c.get("score", 0) + config.PROMO_BOOST
+
+    # Calibrate scores across layers: bake the layer priority into the score
+    # once (assoc_rule +1.0, embedding +0.5, context_pop +0) so every
+    # downstream sort — personalization, diversity — compares on ONE scale.
+    # Personal-favorite boosts (≤ ~0.6) can still lift an item within reach,
+    # but a strong mined rule isn't dethroned by a generic fallback.
+    for c in merged.values():
+        c["score"] = c.get("score", 0) + prio_of(c) * 0.5
+    ranked = sorted(merged.values(), key=lambda x: x.get("score", 0), reverse=True)
+
+    # L4 — personalize (logged-in only): recency-weighted affinity blended
+    # with context (time/dine/store), category backoff, cold-start scaling.
+    # Runs BEFORE the diversity pass — diversity is the final arbiter, so a
+    # member with strong drink affinity still gets one drink + side + dessert,
+    # with their favorites winning WITHIN each category.
+    personalization = None
+    if ctx.get("userId"):
+        ranked, personalization = rerank_personal(ranked, ctx, prod_idx)
+        if personalization.get("used"):
+            strategies.append(
+                "personalize_cold_start" if personalization.get("cold_start") else "personalize"
+            )
+
+    # Diversify: prefer one per complement category (drink / side / dessert).
     seen_cat, primary, rest = {}, [], []
     for c in ranked:
         cat = _cat(c["sku"])
@@ -103,13 +148,9 @@ def recommend(slot, ctx, limit=3):
             primary.append(c)
         else:
             rest.append(c)
+    # Primary picks (one per category) ordered by personalized score.
+    primary.sort(key=lambda x: x.get("score", 0), reverse=True)
     pool = (primary + rest)[:12]
-
-    # L4 — personalize (logged-in only)
-    if ctx.get("userId"):
-        pool, used = rerank_personal(pool, ctx["userId"])
-        if used:
-            strategies.append("personalize")
 
     # L5 — LLM rerank + VN copy (guardrailed)
     picks, used_llm = llm_rerank(pool, ctx, name_of, limit=limit)
@@ -137,9 +178,13 @@ def recommend(slot, ctx, limit=3):
     if combo_up:
         strategies.append("combo_upsell")
 
+    explain = {"strategies_used": strategies, "candidate_pool": len(pool)}
+    if personalization is not None:
+        explain["personalization"] = personalization
+
     return {
         "slot": slot,
         "recommendations": recs,
         "comboUpsell": combo_up,
-        "explain": {"strategies_used": strategies, "candidate_pool": len(pool)},
+        "explain": explain,
     }

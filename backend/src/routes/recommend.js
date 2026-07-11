@@ -32,20 +32,23 @@ r.post("/", asyncH(async (req, res) => {
   const result = await getRecommendations(body);
 
   // Enrich with live product docs (price/image) in case reco returns skus only.
-  if (Array.isArray(result.recommendations) && result.recommendations.length) {
-    const skus = result.recommendations.map((x) => x.sku).filter(Boolean);
-    if (skus.length) {
-      const prods = await Product.find({ sku: { $in: skus } }).lean();
-      const bySku = Object.fromEntries(prods.map((p) => [p.sku, p]));
-      result.recommendations = result.recommendations.map((rec) => {
-        const p = bySku[rec.sku];
-        return p ? { ...rec, productId: String(p._id), name: rec.name || p.name_vi, price: rec.price ?? p.price, imageUrl: p.imageUrl } : rec;
-      });
-    }
+  const skus = (result.recommendations || []).map((x) => x.sku).filter(Boolean);
+  if (skus.length) {
+    const prods = await Product.find({ sku: { $in: skus } }).lean();
+    const bySku = Object.fromEntries(prods.map((p) => [p.sku, p]));
+    result.recommendations = result.recommendations.map((rec) => {
+      const p = bySku[rec.sku];
+      return p ? { ...rec, productId: String(p._id), name: rec.name || p.name_vi, price: rec.price ?? p.price, imageUrl: p.imageUrl } : rec;
+    });
+  }
+  if (skus.length || result.comboUpsell) {
     await Event.create({
       type: "reco_shown", slot: body.slot, channel: ctx.channel,
       userId: ctx.userId || null, cartId: ctx.cartId || null,
-      payload: { strategies: result.explain?.strategies_used, items: skus },
+      payload: {
+        strategies: result.explain?.strategies_used, items: skus,
+        combo: result.comboUpsell?.sku || null,
+      },
     });
   }
 

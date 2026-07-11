@@ -8,6 +8,7 @@ stays up even if OpenAI/Qdrant are unavailable.
 from typing import Any, Optional
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from app.config import config
@@ -58,3 +59,11 @@ async def agent_chat(req: ChatRequest):
     from app.agent.loop import chat
     result = await run_in_threadpool(chat, req.sessionId, req.message, dict(req.context))
     return result
+
+
+@app.get("/agent/ui")
+def agent_ui():
+    """Web chat harness — dev/demo surface for the SAME agent that will sit
+    behind the Zalo OA webhook. Open http://localhost:8080/agent/ui"""
+    from app.agent.chat_ui import CHAT_HTML
+    return HTMLResponse(CHAT_HTML)
