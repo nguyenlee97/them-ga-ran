@@ -10,7 +10,8 @@
     "seed": "node seed/index.js",
     "seed:menu": "node seed/menu.seed.js",
     "seed:reset": "node seed/index.js --reset",
-    "seed:rules": "node seed/rules.only.js"
+    "seed:rules": "node seed/rules.only.js",
+    "menu:enrich-combos": "node scripts/enrich-combo-contents.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

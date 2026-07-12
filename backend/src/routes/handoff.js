@@ -12,7 +12,11 @@ const r = Router();
 r.post("/", asyncH(async (req, res) => {
   const { reason, transcript, channel, externalId, sessionId } = req.body || {};
   await Event.create({ type: "handoff", channel, payload: { reason, sessionId, externalId, transcript } });
-  res.status(201).json({ ok: true, message: "Đã chuyển cho nhân viên hỗ trợ. Vui lòng chờ trong giây lát." });
+  res.status(201).json({
+    ok: true,
+    status: "queued",
+    message: "Yêu cầu đã được chuyển vào hàng chờ hỗ trợ. Nhân viên sẽ tiếp tục phản hồi trong cuộc trò chuyện này.",
+  });
 }));
 
 export default r;

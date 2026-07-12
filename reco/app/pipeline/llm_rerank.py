@@ -13,7 +13,6 @@ Uses app.llm_client (raw httpx POST, no SDK) — the flow proven to work on
 this machine by random-bullshlt's reportGenerator.js.
 """
 import re
-from app.config import config
 from app import llm_client
 
 # MaaS models (minimax etc.) leak <think> reasoning and markdown fences.
@@ -64,8 +63,8 @@ def llm_rerank(candidates, ctx, name_of, limit=3):
         f"Ứng viên (chỉ chọn trong đây):\n{json.dumps(cand_view, ensure_ascii=False)}"
     )
     try:
-        # json_object mode is OpenAI-specific; skip it for custom base URLs (MaaS)
-        rf = {"type": "json_object"} if not config.OPENAI_BASE_URL else None
+        # json_object mode is OpenAI-specific; MaaS output is parsed defensively.
+        rf = {"type": "json_object"} if llm_client.supports_json_object_mode() else None
         msg = llm_client.chat(
             messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}],
             temperature=0.4, response_format=rf,

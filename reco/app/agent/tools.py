@@ -20,8 +20,8 @@ _client = httpx.Client(base_url=config.BACKEND_URL, timeout=15.0)
 
 # ── response compaction ──────────────────────────────────────────────────────
 
-def _compact_product(p):
-    return {
+def _compact_product(p, details=False):
+    out = {
         "productId": str(p.get("_id", "")),
         "sku": p.get("sku"),
         "name": p.get("name_vi"),
@@ -29,6 +29,19 @@ def _compact_product(p):
         "category": p.get("category"),
         "isCombo": bool(p.get("isCombo")),
     }
+    if details:
+        out["description"] = p.get("description") or None
+        combo_items = p.get("comboItems") or []
+        if combo_items:
+            out["comboContents"] = [{
+                "sku": item.get("sku") or None,
+                "qty": item.get("qty", 1),
+                "item": item.get("note") or item.get("sku"),
+            } for item in combo_items]
+        elif out["isCombo"] and p.get("description"):
+            # The real KFC site exposes combo composition as description text.
+            out["comboContentsText"] = p["description"]
+    return out
 
 
 def _compact_cart(cart):
@@ -39,6 +52,8 @@ def _compact_cart(cart):
         "status": cart.get("status"),
         "dineMode": cart.get("dineMode"),
         "deliveryAddress": cart.get("deliveryAddress"),
+        "contactName": cart.get("contactName"),
+        "contactPhone": cart.get("contactPhone"),
         "items": [{
             "lineId": i.get("lineId"),
             "name": i.get("name_vi"),
@@ -65,7 +80,7 @@ def search_menu(query="", category=None, maxPrice=None):
 
 
 def get_item(productId):
-    return _compact_product(_client.get(f"/api/menu/{productId}").json())
+    return _compact_product(_client.get(f"/api/menu/{productId}").json(), details=True)
 
 
 def list_categories():

@@ -7,7 +7,7 @@ export default function Login({ t, onLogin, onSkip }) {
   const [err, setErr] = useState("");
 
   const submit = async () => {
-    if (!phone || !code) { setErr("Vui lòng nhập số điện thoại và mã."); return; }
+    if (!phone) { setErr("Vui lòng nhập số điện thoại."); return; }
     setBusy(true); setErr("");
     try {
       await onLogin(phone, code);
@@ -42,7 +42,7 @@ export default function Login({ t, onLogin, onSkip }) {
       />
       <input
         value={code} onChange={(e) => setCode(e.target.value)}
-        placeholder={t("code") + " *"}
+        placeholder={t("code") + " (không bắt buộc)"}
         className="border-b-2 border-gray-200 py-2 mb-2 outline-none focus:border-kfcred"
       />
       <p className="text-xs text-gray-400 mb-4">

@@ -18,7 +18,7 @@ import base64
 import hashlib
 import secrets
 import time
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import httpx
 
@@ -205,6 +205,57 @@ def parse_event(body: dict):
     if event == "user_send_text":
         text = (body.get("message") or {}).get("text")
     return event, user_id, text
+
+
+def extract_audio_url(body: dict):
+    """Return the trusted HTTPS URL from a signed `user_send_audio` event."""
+    if body.get("event_name") != "user_send_audio":
+        return None
+    attachments = (body.get("message") or {}).get("attachments") or []
+    for attachment in attachments:
+        if attachment.get("type") != "audio":
+            continue
+        url = ((attachment.get("payload") or {}).get("url") or "").strip()
+        if _trusted_audio_url(url):
+            return url
+    return None
+
+
+def _trusted_audio_url(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+    except Exception:
+        return False
+    if parsed.scheme != "https" or not host:
+        return False
+    return any(
+        host == suffix or host.endswith(f".{suffix}")
+        for suffix in config.ZALO_AUDIO_HOST_SUFFIXES
+    )
+
+
+def download_audio(url: str) -> bytes:
+    """Download a Zalo voice note with host and size limits."""
+    if not _trusted_audio_url(url):
+        raise ValueError("untrusted_audio_url")
+    chunks = []
+    total = 0
+    with _http.stream("GET", url, follow_redirects=True) as resp:
+        resp.raise_for_status()
+        if not _trusted_audio_url(str(resp.url)):
+            raise ValueError("untrusted_audio_redirect")
+        declared = int(resp.headers.get("content-length") or 0)
+        if declared > config.AUDIO_MAX_BYTES:
+            raise ValueError("audio_too_large")
+        for chunk in resp.iter_bytes():
+            total += len(chunk)
+            if total > config.AUDIO_MAX_BYTES:
+                raise ValueError("audio_too_large")
+            chunks.append(chunk)
+    if not chunks:
+        raise ValueError("empty_audio")
+    return b"".join(chunks)
 
 
 # ── send ─────────────────────────────────────────────────────────────────────

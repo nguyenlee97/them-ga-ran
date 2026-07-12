@@ -11,7 +11,7 @@ export default function LoginModal({ t, lang, setLang, onConfirm, onSkip, onClos
   const [err, setErr] = useState("");
 
   const confirm = async () => {
-    if (!phone || !code) { setErr("Vui lòng nhập số điện thoại và mã."); return; }
+    if (!phone) { setErr("Vui lòng nhập số điện thoại."); return; }
     setBusy(true); setErr("");
     try { await onConfirm(phone, code); }
     catch { setErr("Đăng nhập thất bại. Thử lại nhé."); setBusy(false); }
@@ -53,7 +53,7 @@ export default function LoginModal({ t, lang, setLang, onConfirm, onSkip, onClos
             placeholder="Số điện thoại *"
             className="w-full border-b-2 border-gray-200 py-2 mb-4 outline-none focus:border-kfcred text-sm" />
           <input value={code} onChange={(e) => setCode(e.target.value)}
-            placeholder="Mã *"
+            placeholder="Mã (không bắt buộc)"
             className="w-full border-b-2 border-gray-200 py-2 outline-none focus:border-kfcred text-sm" />
           <p className="text-xs text-gray-400 mt-4 text-center">
             Để sử dụng các mã dành riêng cho bạn, bạn sẽ cần đăng nhập

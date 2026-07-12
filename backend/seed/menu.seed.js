@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Product from "../src/models/Product.js";
+import { comboItemsFromDescription } from "../src/services/comboContents.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,6 +38,9 @@ export async function seedMenu() {
     description: it.description || "",
     tags: it.tags || [],
     isCombo: !!it.isCombo,
+    comboItems: it.comboItems?.length
+      ? it.comboItems
+      : (it.isCombo ? comboItemsFromDescription(it.description) : []),
     available: it.available !== false,
     sortOrder: i,
   }));

@@ -108,6 +108,28 @@ def _handle_zalo_message(user_id: str, text: str):
             print(f"[zalo] send_image failed for {user_id}: {e}")
 
 
+def _handle_zalo_audio(user_id: str, audio_url: str):
+    """Download + transcribe a completed voice note, then reuse the text flow."""
+    from app.agent.transcription import transcribe_audio
+    from app.agent.zalo import download_audio, send_text
+    try:
+        audio = download_audio(audio_url)
+        transcript = transcribe_audio(audio)
+        print(f"[zalo] audio transcribed for {user_id}: {transcript!r}")
+    except Exception as e:
+        print(f"[zalo] audio failed for {user_id}: {type(e).__name__}: {str(e)[:300]}")
+        try:
+            send_text(
+                user_id,
+                "Mình chưa nghe rõ tin nhắn này. Bạn thử gửi lại đoạn ngắn hơn "
+                "hoặc nhắn chữ giúp mình nhé.",
+            )
+        except Exception as send_error:
+            print(f"[zalo] audio fallback send failed for {user_id}: {send_error}")
+        return
+    _handle_zalo_message(user_id, transcript)
+
+
 @app.get("/zalo/webhook")
 def zalo_webhook_health():
     """Zalo pings the URL; must return 200."""
@@ -138,7 +160,7 @@ def zalo_oauth_callback(code: str = "", state: str = "", error: str = "", error_
 
 @app.post("/zalo/webhook")
 async def zalo_webhook(request: Request, background: BackgroundTasks):
-    from app.agent.zalo import verify_signature, parse_event
+    from app.agent.zalo import verify_signature, parse_event, extract_audio_url
     raw = await request.body()
     mac = request.headers.get("X-ZEvent-Signature", "")
     try:
@@ -153,6 +175,16 @@ async def zalo_webhook(request: Request, background: BackgroundTasks):
     print(f"[zalo] webhook event={event!r} user={user_id!r} text={text!r} raw={body}")
     if event == "user_send_text" and user_id and text:
         background.add_task(_handle_zalo_message, user_id, text)
+    elif event == "user_send_audio" and user_id:
+        audio_url = extract_audio_url(body)
+        if audio_url:
+            background.add_task(_handle_zalo_audio, user_id, audio_url)
+        else:
+            from app.agent.zalo import send_text
+            background.add_task(
+                send_text, user_id,
+                "Mình chưa mở được tin nhắn thoại này. Bạn gửi lại hoặc nhắn chữ giúp mình nhé.",
+            )
     elif event == "follow" and user_id:
         from app.agent.zalo import send_text
         background.add_task(send_text, user_id, GREETING)

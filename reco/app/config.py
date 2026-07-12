@@ -23,6 +23,39 @@ class Config:
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "") or None
 
+    # Opt-in LLM provider routing. Keeping "openai" as the default preserves
+    # the currently deployed/demoed behavior until GreenNode is configured.
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").strip().lower()
+    GREENNODE_API_KEY = (
+        os.getenv("GREENNODE_API_KEY", "")
+        or os.getenv("AI_PLATFORM_API_KEY", "")
+    )
+    GREENNODE_BASE_URL = os.getenv(
+        "GREENNODE_BASE_URL",
+        "https://maas-llm-aiplatform-hcm.api.vngcloud.vn/v1",
+    )
+    GREENNODE_MODEL = os.getenv("GREENNODE_MODEL", "minimax/minimax-m2.5")
+
+    # Completed Zalo voice notes use OpenAI speech-to-text even when the chat
+    # model is routed to another OpenAI-compatible provider.
+    OPENAI_TRANSCRIBE_API_KEY = (
+        os.getenv("OPENAI_TRANSCRIBE_API_KEY", "") or OPENAI_API_KEY
+    )
+    OPENAI_TRANSCRIBE_BASE_URL = os.getenv(
+        "OPENAI_TRANSCRIBE_BASE_URL", "https://api.openai.com/v1"
+    ).rstrip("/")
+    OPENAI_TRANSCRIBE_MODEL = os.getenv(
+        "OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini-transcribe"
+    )
+    AUDIO_MAX_BYTES = int(os.getenv("AUDIO_MAX_BYTES", str(20 * 1024 * 1024)))
+    AUDIO_MAX_SECONDS = int(os.getenv("AUDIO_MAX_SECONDS", "300"))
+
+    # P4 conversation memory: a Zalo user id is durable, a conversation is not.
+    # Start a fresh ordering context after inactivity and keep a hard LLM window
+    # even inside an active conversation.
+    CHAT_IDLE_TIMEOUT_SECONDS = int(os.getenv("CHAT_IDLE_TIMEOUT_SECONDS", "600"))
+    CHAT_CONTEXT_MESSAGES = int(os.getenv("CHAT_CONTEXT_MESSAGES", "20"))
+
     USE_EMBEDDINGS = os.getenv("RECO_USE_EMBEDDINGS", "false").lower() == "true"
     QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
     RAG_COLLECTION = os.getenv("RAG_COLLECTION", "kfc_menu")
@@ -56,6 +89,11 @@ class Config:
     # Endpoints (overridable if Zalo revs the API version).
     ZALO_OAUTH_URL = os.getenv("ZALO_OAUTH_URL", "https://oauth.zaloapp.com/v4/oa/access_token")
     ZALO_OA_API_URL = os.getenv("ZALO_OA_API_URL", "https://openapi.zalo.me")
+    ZALO_AUDIO_HOST_SUFFIXES = tuple(
+        host.strip().lower()
+        for host in os.getenv("ZALO_AUDIO_HOST_SUFFIXES", "zdn.vn").split(",")
+        if host.strip()
+    )
     # Public HTTPS base for QR/pay links Zalo users open from their phone (only
     # the /zalo/ path is exposed via nginx). QR image + pay webhook live here.
     PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://pawgrammers.io.vn")

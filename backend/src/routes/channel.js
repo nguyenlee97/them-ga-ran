@@ -40,6 +40,25 @@ r.post("/link", asyncH(async (req, res) => {
   if (!channel || !externalId) throw httpError(400, "missing_channel_identity");
   if (!phone) throw httpError(400, "missing_phone", "phone required");
 
+  // One durable member per OA-scoped identity. A delivery contact phone belongs
+  // on the cart/order and must never silently relink the Zalo account.
+  const existing = await ChannelIdentity.findOne({ channel, externalId });
+  if (existing?.status === "linked" && existing.userId) {
+    const existingUser = await User.findById(existing.userId);
+    if (existingUser) {
+      if (existing.phone !== phone) {
+        throw httpError(409, "identity_already_linked",
+          "This channel identity is already linked; delivery phone does not change membership");
+      }
+      return res.json({
+        linked: true,
+        alreadyLinked: true,
+        user: { id: existingUser._id, phone: existingUser.phone, name: existingUser.name, tier: existingUser.tier },
+        loyalty: loyaltySummary(existingUser),
+      });
+    }
+  }
+
   let user = await User.findOne({ phone });
   if (!user) user = await User.create({ phone, name: name || "Thành Viên KFC" });
 
