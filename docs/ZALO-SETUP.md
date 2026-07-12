@@ -93,7 +93,7 @@ private (needs the `HOST` support in `src/server.js`):
 ```
 PORT=3100
 HOST=127.0.0.1
-MONGODB_URI=mongodb://agent_user_1:pawngrammers@api.pawgrammers.io.vn:27017/kfc?authSource=admin
+MONGODB_URI=
 RECO_URL=http://localhost:8080
 NODE_ENV=production
 ```
